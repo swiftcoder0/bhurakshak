@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-canvas: #F7F4EE;
+    --color-surface: #FDFCF9;
+    --color-border: #E5DED3;
+    --color-walnut: #3D2314;
+    --color-olive: #4A6741;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: #231F1D;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Subtle, calm cartographic radar pulse */
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+.animate-radar {
+  animation: radar-pulse 3.6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+/* Elegant custom scrollbar for modal drawers */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #D8D0C5;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #B8ADA0;
+}

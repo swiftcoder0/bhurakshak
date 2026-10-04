@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: bhurakshak
+    env: node
+    plan: starter
+    region: oregon
+    branch: main
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 20.14.0
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
