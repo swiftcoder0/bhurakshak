@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "copy-cesium": "node scripts/copy-cesium.mjs",
+    "postinstall": "node scripts/copy-cesium.mjs",
     "prebuild": "node scripts/copy-cesium.mjs",
     "dev": "npm run copy-cesium && next dev",
     "build": "npm run copy-cesium && next build",

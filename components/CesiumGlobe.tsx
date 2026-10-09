@@ -88,6 +88,7 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
 
   // Telemetry & lifecycle
   const [isLoaded, setIsLoaded] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [cameraAltitudeKm, setCameraAltitudeKm] = useState<number>(3100);
 
   // Two-Level Controls (Matching Reference Image)
@@ -387,51 +388,51 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
     async function init() {
       if (typeof window === "undefined" || !container) return;
 
-      const token = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
+      try {
+        const token = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
 
-      if (!token) {
-        console.error(
-          "Cesium ion token is missing: NEXT_PUBLIC_CESIUM_ION_TOKEN is not defined in environment variables. Please configure NEXT_PUBLIC_CESIUM_ION_TOKEN in your deployment environment."
-        );
-      }
+        if (!token) {
+          console.warn(
+            "[Bhurakshak] NEXT_PUBLIC_CESIUM_ION_TOKEN is not defined in environment variables. Running in key-free ESRI cartographic mode."
+          );
+        }
 
-      if (typeof window !== "undefined") {
-        (window as any).CESIUM_BASE_URL = "/cesium";
-        (globalThis as any).CESIUM_BASE_URL = "/cesium";
-      }
+        if (typeof window !== "undefined") {
+          (window as any).CESIUM_BASE_URL = "/cesium";
+          (globalThis as any).CESIUM_BASE_URL = "/cesium";
+        }
 
-      const Cesium = await import("cesium");
+        const Cesium = await import("cesium");
 
-      if (typeof (Cesium.buildModuleUrl as any)?.setBaseUrl === "function") {
-        (Cesium.buildModuleUrl as any).setBaseUrl("/cesium/");
-      }
+        if (typeof (Cesium.buildModuleUrl as any)?.setBaseUrl === "function") {
+          (Cesium.buildModuleUrl as any).setBaseUrl("/cesium/");
+        }
 
-      if (token) {
-        Cesium.Ion.defaultAccessToken = token;
-      }
+        if (token) {
+          Cesium.Ion.defaultAccessToken = token;
+        }
 
-      if (!isMounted || !containerRef.current) return;
+        if (!isMounted || !containerRef.current) return;
 
-      const viewer = new Cesium.Viewer(containerRef.current, {
-        animation: false,
-        timeline: false,
-        baseLayerPicker: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        navigationHelpButton: false,
-        infoBox: false,
-        selectionIndicator: false,
-        fullscreenButton: false,
-        requestRenderMode: true,
-        maximumRenderTimeChange: Infinity,
-        creditContainer: creditRef.current || undefined,
-      });
+        const viewer = new Cesium.Viewer(containerRef.current, {
+          animation: false,
+          timeline: false,
+          baseLayerPicker: false,
+          baseLayer: false, // Critical: do not attempt to load default Ion World Imagery
+          geocoder: false,
+          homeButton: false,
+          sceneModePicker: false,
+          navigationHelpButton: false,
+          infoBox: false,
+          selectionIndicator: false,
+          fullscreenButton: false,
+          creditContainer: creditRef.current || undefined,
+        });
 
-      viewerRef.current = viewer;
+        viewerRef.current = viewer;
 
-      // Screen space controller
-      const controller = viewer.scene.screenSpaceCameraController;
+        // Screen space controller
+        const controller = viewer.scene.screenSpaceCameraController;
       controller.zoomEventTypes = [
         Cesium.CameraEventType.RIGHT_DRAG,
         Cesium.CameraEventType.PINCH,
@@ -506,22 +507,21 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
         console.warn("[Bhurakshak] Could not load SoilGrids WMS:", err);
       }
 
-      // 4. Clean State Boundaries Outline (Always clean on Cartographic base)
-      try {
-        const stateBordersDs = await Cesium.GeoJsonDataSource.load(
-          "/data/boundaries/states-outline.geojson",
-          {
-            stroke: Cesium.Color.fromCssColorString("#3D2314").withAlpha(0.4),
-            fill: Cesium.Color.TRANSPARENT,
-            strokeWidth: 1.2,
-            clampToGround: true,
-          }
-        );
-        viewer.dataSources.add(stateBordersDs);
-        bordersDataSourceRef.current = stateBordersDs;
-      } catch (err) {
-        console.warn("[Bhurakshak] Could not load state outline GeoJSON:", err);
-      }
+      // 4. Clean State Boundaries Outline (Loaded non-blocking so globe renders immediately)
+      Cesium.GeoJsonDataSource.load("/data/boundaries/states-outline.geojson", {
+        stroke: Cesium.Color.fromCssColorString("#3D2314").withAlpha(0.4),
+        fill: Cesium.Color.TRANSPARENT,
+        strokeWidth: 1.2,
+        clampToGround: true,
+      })
+        .then((ds) => {
+          if (!viewer || viewer.isDestroyed()) return;
+          viewer.dataSources.add(ds);
+          bordersDataSourceRef.current = ds;
+        })
+        .catch((err) => {
+          console.warn("[Bhurakshak] Could not load state outline GeoJSON:", err);
+        });
 
       // 5. Add India-Level Change Dots (Visible at country scale)
       for (const pt of INDIA_CHANGE_POINTS) {
@@ -667,7 +667,14 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
         }
       });
 
-      if (isMounted) setIsLoaded(true);
+        if (isMounted) setIsLoaded(true);
+      } catch (err: any) {
+        console.error("[Bhurakshak] Cesium initialization error:", err);
+        if (isMounted) {
+          setInitError(err?.message || "Failed to initialize 3D Earth view");
+          setIsLoaded(true);
+        }
+      }
     }
 
     init();
@@ -743,7 +750,7 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
       />
 
       {/* Loading Overlay */}
-      {!isLoaded && (
+      {!isLoaded && !initError && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F7F4EE] text-charcoal z-20">
           <div className="flex items-center gap-2 font-mono text-xs text-charcoal">
             <span className="h-2 w-2 rounded-full bg-olive animate-ping" />
@@ -752,6 +759,29 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
           <span className="font-mono text-[10px] text-charcoal-muted mt-1">
             Loading Cartographic Surface & Land Change Layers
           </span>
+        </div>
+      )}
+
+      {/* Error Fallback Notice */}
+      {initError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F7F4EE] text-charcoal z-25 p-6 text-center">
+          <div className="max-w-md rounded-2xl border border-canvas-border bg-[#FDFCF9] p-6 shadow-sm space-y-3">
+            <div className="text-sm font-semibold text-walnut">
+              WebGL / 3D Globe Initialization Notice
+            </div>
+            <p className="text-xs text-charcoal-muted leading-relaxed font-mono">
+              {initError}
+            </p>
+            <p className="text-[11px] text-charcoal-muted/80">
+              Please check if WebGL is supported by your browser or refresh the page.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 rounded-full bg-walnut px-4 py-1.5 text-xs font-medium text-white hover:bg-walnut-hover transition-colors"
+            >
+              Reload View
+            </button>
+          </div>
         </div>
       )}
 
