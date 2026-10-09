@@ -35,6 +35,12 @@ import {
   IndiaChangePoint,
 } from "@/data/landChangeDemo";
 
+// Set Cesium base URL safely for client runtime
+if (typeof window !== "undefined") {
+  (window as any).CESIUM_BASE_URL = "/cesium";
+  (globalThis as any).CESIUM_BASE_URL = "/cesium";
+}
+
 export interface CesiumGlobeProps {
   onExplorePilot?: () => void;
   variant?: "hero" | "explorer";
@@ -383,10 +389,27 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
 
       const token = process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
 
-      (window as any).CESIUM_BASE_URL = "/cesium";
+      if (!token) {
+        console.error(
+          "Cesium ion token is missing: NEXT_PUBLIC_CESIUM_ION_TOKEN is not defined in environment variables. Please configure NEXT_PUBLIC_CESIUM_ION_TOKEN in your deployment environment."
+        );
+      }
+
+      if (typeof window !== "undefined") {
+        (window as any).CESIUM_BASE_URL = "/cesium";
+        (globalThis as any).CESIUM_BASE_URL = "/cesium";
+      }
+
       const Cesium = await import("cesium");
 
-      if (token) Cesium.Ion.defaultAccessToken = token;
+      if (typeof (Cesium.buildModuleUrl as any)?.setBaseUrl === "function") {
+        (Cesium.buildModuleUrl as any).setBaseUrl("/cesium/");
+      }
+
+      if (token) {
+        Cesium.Ion.defaultAccessToken = token;
+      }
+
       if (!isMounted || !containerRef.current) return;
 
       const viewer = new Cesium.Viewer(containerRef.current, {
