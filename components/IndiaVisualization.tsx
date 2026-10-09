@@ -3,20 +3,31 @@
 import React from "react";
 import dynamic from "next/dynamic";
 
-const CesiumGlobe = dynamic(() => import("./CesiumGlobe"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full min-h-[460px] flex-col items-center justify-center bg-[#F7F4EE] text-charcoal">
-      <div className="flex items-center gap-2 font-mono text-xs text-charcoal">
-        <span className="h-2 w-2 rounded-full bg-olive animate-ping" />
-        <span>Initializing India 3D Earth...</span>
+const CesiumGlobe = dynamic(
+  async () => {
+    try {
+      return await import("./CesiumGlobe");
+    } catch (err) {
+      console.warn("[Bhurakshak] Initial CesiumGlobe chunk load interrupted, retrying...", err);
+      await new Promise((r) => setTimeout(r, 1200));
+      return await import("./CesiumGlobe");
+    }
+  },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full w-full min-h-[460px] flex-col items-center justify-center bg-[#F7F4EE] text-charcoal">
+        <div className="flex items-center gap-2 font-mono text-xs text-charcoal">
+          <span className="h-2 w-2 rounded-full bg-olive animate-ping" />
+          <span>Initializing India 3D Earth...</span>
+        </div>
+        <span className="font-mono text-[10px] text-charcoal-muted mt-1">
+          Loading Earth-Observation & Land Change Layers
+        </span>
       </div>
-      <span className="font-mono text-[10px] text-charcoal-muted mt-1">
-        Loading Earth-Observation & Land Change Layers
-      </span>
-    </div>
-  ),
-});
+    ),
+  }
+);
 
 interface IndiaVisualizationProps {
   onExplorePilot?: () => void;

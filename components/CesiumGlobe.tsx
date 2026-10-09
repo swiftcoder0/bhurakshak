@@ -402,7 +402,17 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
           (globalThis as any).CESIUM_BASE_URL = "/cesium";
         }
 
-        const Cesium = await import("cesium");
+        let Cesium: any;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            Cesium = await import("cesium");
+            break;
+          } catch (chunkErr) {
+            console.warn(`[Bhurakshak] Cesium chunk load attempt ${attempt} failed, retrying...`, chunkErr);
+            if (attempt === 3) throw chunkErr;
+            await new Promise((res) => setTimeout(res, 800 * attempt));
+          }
+        }
 
         if (typeof (Cesium.buildModuleUrl as any)?.setBaseUrl === "function") {
           (Cesium.buildModuleUrl as any).setBaseUrl("/cesium/");
@@ -514,12 +524,12 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
         strokeWidth: 1.2,
         clampToGround: true,
       })
-        .then((ds) => {
+        .then((ds: any) => {
           if (!viewer || viewer.isDestroyed()) return;
           viewer.dataSources.add(ds);
           bordersDataSourceRef.current = ds;
         })
-        .catch((err) => {
+        .catch((err: any) => {
           console.warn("[Bhurakshak] Could not load state outline GeoJSON:", err);
         });
 
@@ -776,8 +786,10 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
               Please check if WebGL is supported by your browser or refresh the page.
             </p>
             <button
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 rounded-full bg-walnut px-4 py-1.5 text-xs font-medium text-white hover:bg-walnut-hover transition-colors"
+              onClick={() => {
+                window.location.href = window.location.origin + window.location.pathname + "?t=" + Date.now();
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-walnut px-5 py-2 text-xs font-medium text-white hover:bg-walnut-hover transition-colors shadow-xs active:scale-95"
             >
               Reload View
             </button>
