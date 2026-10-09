@@ -41,6 +41,12 @@ const nextConfig = {
       })
     );
 
+    // Alias @spz-loader/core to safe stub to eliminate octal escape SyntaxError in chunk 318
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@spz-loader/core": path.resolve(__dirname, "stubs/spz-loader.js"),
+    };
+
     return config;
   },
 };

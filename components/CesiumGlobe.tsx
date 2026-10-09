@@ -41,6 +41,22 @@ if (typeof window !== "undefined") {
   (globalThis as any).CESIUM_BASE_URL = "/cesium";
 }
 
+let cachedCesium: any = null;
+
+async function loadCesiumModule(): Promise<any> {
+  if (cachedCesium) return cachedCesium;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      cachedCesium = await import("cesium");
+      return cachedCesium;
+    } catch (chunkErr) {
+      console.warn(`[Bhurakshak] Cesium chunk load attempt ${attempt} failed, retrying...`, chunkErr);
+      if (attempt === 3) throw chunkErr;
+      await new Promise((res) => setTimeout(res, 800 * attempt));
+    }
+  }
+}
+
 export interface CesiumGlobeProps {
   onExplorePilot?: () => void;
   variant?: "hero" | "explorer";
@@ -181,7 +197,7 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
       selectionDataSourceRef.current = null;
     }
 
-    import("cesium").then((Cesium) => {
+    loadCesiumModule().then((Cesium) => {
       v.camera.flyTo({
         destination: Cesium.Cartesian3.fromDegrees(79.0, 22.0, 3100000), // ~3,100 km centered over India
         orientation: {
@@ -221,7 +237,7 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
       const v = viewerRef.current;
       if (!v || v.isDestroyed()) return;
 
-      const Cesium = await import("cesium");
+      const Cesium = await loadCesiumModule();
 
       if (selectionDataSourceRef.current) {
         v.dataSources.remove(selectionDataSourceRef.current, true);
@@ -311,7 +327,7 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
       handleSetBaseMode("satellite", false);
       if (targetPolygon) setSelectedChange(targetPolygon);
 
-      import("cesium").then((Cesium) => {
+      loadCesiumModule().then((Cesium) => {
         v.camera.flyTo({
           destination: Cesium.Cartesian3.fromDegrees(lng, lat, 14500),
           orientation: {
@@ -402,17 +418,7 @@ export const CesiumGlobe: React.FC<CesiumGlobeProps> = ({
           (globalThis as any).CESIUM_BASE_URL = "/cesium";
         }
 
-        let Cesium: any;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            Cesium = await import("cesium");
-            break;
-          } catch (chunkErr) {
-            console.warn(`[Bhurakshak] Cesium chunk load attempt ${attempt} failed, retrying...`, chunkErr);
-            if (attempt === 3) throw chunkErr;
-            await new Promise((res) => setTimeout(res, 800 * attempt));
-          }
-        }
+        const Cesium = await loadCesiumModule();
 
         if (typeof (Cesium.buildModuleUrl as any)?.setBaseUrl === "function") {
           (Cesium.buildModuleUrl as any).setBaseUrl("/cesium/");
